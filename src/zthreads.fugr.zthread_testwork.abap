@@ -7,6 +7,6 @@ FUNCTION ZTHREAD_TESTWORK.
 *"     REFERENCE(E_STR)
 *"----------------------------------------------------------------------
 
-  e_str = |TASK { I_ID }|.
+  e_str = |DOING TASK { I_ID }|.
 
 ENDFUNCTION.

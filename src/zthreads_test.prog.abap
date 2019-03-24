@@ -17,7 +17,7 @@ class lcl_main implementation.
   method constructor.
     create object mo_handler
       exporting
-        i_threads = 2.
+        i_threads = 1.
   endmethod.
 
   method run.
@@ -30,6 +30,7 @@ class lcl_main implementation.
   endmethod.
 
   method do_stuff_in_parallel.
+
     data lv_thread_name type char8.
     data errmsg type char255.
 
