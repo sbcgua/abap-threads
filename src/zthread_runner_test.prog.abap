@@ -10,6 +10,10 @@ class zcl_thread_runner_slug definition abstract.
     constants c_default_state_member_name type c length 10 value 'MS_STATE'.
 
     methods run abstract.
+    methods get_state_ref abstract
+      returning
+        value(rv_ref) type ref to data.
+
     methods serialize_state
       returning
         value(rv_xstr) type xstring.
@@ -103,15 +107,21 @@ class zcl_thread_runner_slug implementation.
   endmethod.
 
   method serialize_state.
+    data lv_ref type ref to data.
     field-symbols <state> type any.
-    assign me->(c_default_state_member_name) to <state>.
+
+    lv_ref = get_state_ref( ).
+    assign lv_ref->* to <state>.
     export data = <state> to data buffer rv_xstr.
     assert sy-subrc = 0.
   endmethod.
 
   method deserialize_state.
+    data lv_ref type ref to data.
     field-symbols <state> type any.
-    assign me->(c_default_state_member_name) to <state>.
+
+    lv_ref = get_state_ref( ).
+    assign lv_ref->* to <state>.
     import data = <state> from data buffer iv_xstr.
     assert sy-subrc = 0.
   endmethod.
@@ -134,6 +144,7 @@ class lcl_task definition final inheriting from zcl_thread_runner_slug.
         value(rv_result) type string.
 
     methods run redefinition.
+    methods get_state_ref redefinition.
 
     types:
       begin of ty_state,
@@ -143,7 +154,8 @@ class lcl_task definition final inheriting from zcl_thread_runner_slug.
         result      type string,
       end of ty_state.
 
-    data ms_state type ty_state. " MUST be public because addressed from a super class and not READ_ONLY
+  private section.
+    data ms_state type ty_state.
 
 endclass.
 
@@ -154,15 +166,14 @@ class lcl_task implementation.
     ro_instance->ms_state-id = id.
     ro_instance->ms_state-name = name.
     ro_instance->ms_state-trigger_err = trigger_err.
-
-    field-symbols <state> type any.
-    assign ro_instance->(c_default_state_member_name) to <state>.
-
-
   endmethod.
 
   method result.
     rv_result = ms_state-result.
+  endmethod.
+
+  method get_state_ref.
+    get reference of ms_state into rv_ref.
   endmethod.
 
   method run.
@@ -191,7 +202,6 @@ class lcl_main definition final.
     methods run.
     methods do_stuff_in_parallel importing i_id type i.
     methods on_end_of_action importing p_task type clike.
-    methods report.
 
     data mo_handler type ref to zcl_thread_handler.
     data mt_results type standard table of ty_result.
@@ -204,9 +214,6 @@ class lcl_main implementation.
     create object mo_handler
       exporting
         i_threads = 2.
-  endmethod.
-
-  method report.
   endmethod.
 
   method run.
