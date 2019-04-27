@@ -1,4 +1,4 @@
-report zthreads_test.
+program zthreads_test.
 
 class lcx_error definition inheriting from cx_no_check.
 endclass.
@@ -64,6 +64,100 @@ class lcl_task implementation.
 endclass.
 
 **********************************************************************
+
+class lcl_reducer definition final inheriting from zcl_thread_runner_slug.
+  public section.
+
+    types:
+      begin of ty_result,
+        task   type string,
+        error  type string,
+        result type string,
+      end of ty_result,
+      tt_result type standard table of ty_result with key task,
+      begin of ty_state,
+        threads type i,
+        tasks   type i,
+        result  type tt_result,
+      end of ty_state.
+
+    types:
+      begin of ty_queue,
+        task type string,
+        runner type ref to lcl_task,
+      end of ty_queue.
+
+    class-methods create " Constructor MUST be without params
+      importing
+        iv_threads type i
+        iv_tasks   type i
+      returning
+        value(ro_instance) type ref to lcl_reducer.
+
+    methods result
+      returning
+        value(rt_result) type tt_result.
+
+    methods run redefinition.
+    methods get_state_ref redefinition.
+
+  private section.
+    data ms_state type ty_state.
+
+endclass.
+
+class lcl_reducer implementation.
+
+  method create.
+    create object ro_instance.
+    ro_instance->ms_state-threads = iv_threads.
+    ro_instance->ms_state-tasks = iv_tasks.
+  endmethod.
+
+  method result.
+    rt_result = ms_state-result.
+  endmethod.
+
+  method get_state_ref.
+    get reference of ms_state into rv_ref.
+  endmethod.
+
+  method run.
+
+    data lo_handler type ref to zcl_thread_handler.
+    create object lo_handler
+      exporting
+        i_threads = ms_state-threads.
+
+    data lt_queue type standard table of ty_queue.
+    field-symbols <q> like line of lt_queue.
+
+    do ms_state-tasks times.
+      append initial line to lt_queue assigning <q>.
+      <q>-task = sy-tabix.
+      <q>-runner = lcl_task=>create(
+        io_queue = lo_handler
+        id = sy-tabix
+        trigger_err = boolc( sy-tabix = 4 ) "one random task failed
+        name = |Task { sy-tabix }| ).
+      <q>-runner->run_parallel( ).
+
+    enddo.
+    wait until lo_handler->all_threads_are_finished( ) = abap_true up to 20 seconds.
+
+    field-symbols <res> like line of ms_state-result.
+    loop at lt_queue assigning <q>.
+      append initial line to ms_state-result assigning <res>.
+      <res>-task   = <q>-task.
+      <res>-result = <q>-runner->result( ).
+      <res>-error  = <q>-runner->error( ).
+    endloop.
+
+  endmethod.
+
+endclass.
+
+**********************************************************************
 * controller
 **********************************************************************
 
@@ -102,7 +196,7 @@ class lcl_main implementation.
       <res>-task = sy-tabix.
       <res>-runner = lcl_task=>create(
         io_queue = mo_handler
-        id = 1
+        id = sy-tabix
         trigger_err = boolc( sy-tabix = 3 ) "one random task failed
         name = |Task { sy-tabix }| ).
       <res>-runner->run_parallel( ).
@@ -186,6 +280,33 @@ form run_1_parallel.
 
 endform.
 
+form run_with_reducer.
+
+  data lo_reducer type ref to lcl_reducer.
+  lo_reducer = lcl_reducer=>create(
+    iv_threads = 2
+    iv_tasks   = 8 ).
+
+  uline.
+  write: / 'Running parallel with reducer'.
+  lo_reducer->run_parallel( 'reducer' ).
+  wait until lo_reducer->is_ready( ) = abap_true up to 10 seconds.
+
+  data lt_results type lcl_reducer=>tt_result.
+  field-symbols <r> like line of lt_results.
+
+  lt_results = lo_reducer->result( ).
+
+  loop at lt_results assigning <r>.
+    if <r>-error is not initial.
+      write: / 'Error :', <r>-task, <r>-error.
+    else.
+      write: / 'Result:', <r>-task, <r>-result.
+    endif.
+  endloop.
+
+endform.
+
 form main.
   data lo_app type ref to lcl_main.
   create object lo_app.
@@ -193,6 +314,7 @@ form main.
 
   perform run_1_parallel.
   perform run_single.
+  perform run_with_reducer.
 
   uline.
   write: / 'Finished'.
