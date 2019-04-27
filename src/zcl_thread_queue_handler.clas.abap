@@ -11,10 +11,10 @@ public section.
   types:
     ty_thread_name        type c length 8 .
 
-  constants C_DEFAULT_GROUP type RZLLI_APCL value 'parallel_generators'. "#EC NOTEXT
-  constants C_DEFAULT_TASK_PREFIX type TY_THREAD_NAME_PREFIX value 'PARALL'. "#EC NOTEXT
-  constants C_DEFAULT_WAIT_TIME type I value 5. "#EC NOTEXT
-  constants C_MAX_THREADS type I value 20. "#EC NOTEXT
+  constants c_default_group type rzlli_apcl value 'parallel_generators'. "#EC NOTEXT
+  constants c_default_task_prefix type ty_thread_name_prefix value 'PARALL'. "#EC NOTEXT
+  constants c_default_wait_time type i value 5. "#EC NOTEXT
+  constants c_max_threads type i value 20. "#EC NOTEXT
 
   methods constructor
     importing
@@ -32,6 +32,10 @@ public section.
   methods get_free_thread
     returning
       value(r_thread) type ty_thread_name .
+  methods get_server_group
+    returning
+      value(r_server_group) type rzlli_apcl.
+
   protected section.
 
   private section.
@@ -163,6 +167,11 @@ CLASS ZCL_THREAD_QUEUE_HANDLER IMPLEMENTATION.
         message id sy-msgid type 'X' number sy-msgno with sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
 
     endcase.
+  endmethod.
+
+
+  method get_server_group.
+    r_server_group = me->group.
   endmethod.
 
 

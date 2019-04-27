@@ -104,11 +104,13 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
     data lv_class_name type string.
     data lv_xstr type xstring.
     data lv_thread_name type string.
+    data lv_server_group type rzlli_apcl.
 
+    lv_server_group = zcl_thread_queue_handler=>c_default_group.
+    lv_thread_name  = iv_thread_name.
     if mo_queue_handler is bound. " Queued thread
-      lv_thread_name = mo_queue_handler->get_free_thread( ).
-    else.
-      lv_thread_name = iv_thread_name.
+      lv_server_group = mo_queue_handler->get_server_group( ).
+      lv_thread_name  = mo_queue_handler->get_free_thread( ).
     endif.
     assert lv_thread_name is not initial.
 
@@ -117,7 +119,7 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
 
     call function c_runner_fm_name
       starting new task lv_thread_name
-      destination in group zcl_thread_queue_handler=>c_default_group " TODO !??
+      destination in group lv_server_group
       calling on_end_of_task on end of task
       exporting
         iv_runner_class_name = lv_class_name
