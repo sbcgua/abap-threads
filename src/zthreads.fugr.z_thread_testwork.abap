@@ -1,4 +1,4 @@
-FUNCTION ZTHREAD_TESTWORK.
+FUNCTION Z_THREAD_TESTWORK .
 *"----------------------------------------------------------------------
 *"*"Local Interface:
 *"  IMPORTING

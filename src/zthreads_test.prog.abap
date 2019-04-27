@@ -1,14 +1,23 @@
 report zthreads_test.
 
 class lcl_main definition final.
-
   public section.
+
+    types:
+      begin of ty_result,
+        task type string,
+        result type string,
+        error type string,
+      end of ty_result.
+
     methods constructor.
     methods run.
     methods do_stuff_in_parallel importing i_id type i.
     methods on_end_of_action importing p_task type clike.
+    methods report.
 
     data mo_handler type ref to zcl_thread_handler.
+    data mt_results type standard table of ty_result.
 
 endclass.
 
@@ -17,15 +26,28 @@ class lcl_main implementation.
   method constructor.
     create object mo_handler
       exporting
-        i_threads = 1.
+        i_threads = 2.
+  endmethod.
+
+  method report.
   endmethod.
 
   method run.
 
-    do 2 times.
+    field-symbols <res> like line of mt_results.
+
+    do 10 times.
       me->do_stuff_in_parallel( sy-index ).
     enddo.
     wait until mo_handler->all_threads_are_finished( ) = abap_true up to 20 seconds.
+
+    loop at mt_results assigning <res>.
+      if <res>-result is not initial.
+        write: / 'OK:', <res>-task, <res>-result.
+      else.
+        write: / 'ER:', <res>-task, <res>-error.
+      endif.
+    endloop.
 
   endmethod.
 
@@ -36,7 +58,7 @@ class lcl_main implementation.
 
     lv_thread_name = mo_handler->get_free_thread( ).
 
-    call function 'ZTHREAD_TESTWORK'
+    call function 'Z_THREAD_TESTWORK'
       starting new task lv_thread_name
       destination in group zcl_thread_handler=>c_default_group
       calling on_end_of_action on end of task
@@ -55,8 +77,9 @@ class lcl_main implementation.
 
     data errmsg type c length 255.
     data l_result type string.
+    field-symbols <res> like line of mt_results.
 
-    receive results from function 'ZTHREAD_TESTWORK'
+    receive results from function 'Z_THREAD_TESTWORK'
       importing
         e_str = l_result
       exceptions
@@ -64,16 +87,20 @@ class lcl_main implementation.
         system_failure        = 2 message errmsg
         OTHERS                = 4.
 
+    append initial line to mt_results assigning <res>.
+    <res>-task = p_task.
+
     if sy-subrc is not initial.
-      write: / 'Finish Error:', sy-subrc.
-      write: / errmsg.
-      write: / sy-msgid, sy-msgno, sy-msgv1, sy-msgv2, sy-msgv3, sy-msgv4.
+      <res>-error = errmsg.
+*      write: / 'Finish Error:', sy-subrc.
+*      write: / errmsg.
+*      write: / sy-msgid, sy-msgno, sy-msgv1, sy-msgv2, sy-msgv3, sy-msgv4.
+    else.
+      <res>-result = l_result.
     endif.
 
     " Free the thread for the next thread to run
     mo_handler->clear_thread( |{ p_task }| ).
-
-    write: / p_task, l_result.
 
   endmethod.
 
@@ -84,6 +111,7 @@ form main.
   data lo_app type ref to lcl_main.
   create object lo_app.
   lo_app->run( ).
+  write: / 'Finished'.
 endform.
 
 start-of-selection.
