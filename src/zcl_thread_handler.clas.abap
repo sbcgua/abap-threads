@@ -5,27 +5,32 @@ class zcl_thread_handler definition
 
   public section.
     type-pools abap .
+    types ty_thread_name_prefix type c length 6.
+    types ty_thread_name        type c length 8.
 
     constants:
-      c_default_group type rzlli_apcl value 'parallel_generators', "#EC NOTEXT
-      c_task          type char6 value 'PARALL'.            "#EC NOTEXT
+      c_default_group       type rzlli_apcl value 'parallel_generators', "#EC NOTEXT
+      c_default_task_prefix type ty_thread_name_prefix value 'PARALL',   "#EC NOTEXT
+      c_default_wait_time   type i value 5,
+      c_max_threads         type i value 20.
 
     methods:
       constructor
         importing
           !i_threads     type i
-          !i_task_prefix type char6 default c_task
+          !i_wait_time   type i default c_default_wait_time
+          !i_task_prefix type ty_thread_name_prefix default c_default_task_prefix
           !i_group       type rzlli_apcl default c_default_group,
       all_threads_are_finished
         returning
           value(r_empty) type abap_bool,
       clear_thread
         importing
-          !i_task type char8,
+          !i_task type ty_thread_name,
       handle_resource_failure,
       get_free_thread
         returning
-          value(r_thread) type char8 .
+          value(r_thread) type ty_thread_name .
 
   protected section.
 
@@ -33,15 +38,16 @@ class zcl_thread_handler definition
 
     types:
       begin of ty_thread,
-        thread type char8,
+        thread type ty_thread_name,
         used   type abap_bool,
       end of ty_thread .
 
     data:
-      task_prefix  type char6,
+      task_prefix  type ty_thread_name_prefix,
       threads_list type standard table of ty_thread with default key,
       threads      type i,
       used_threads type i,
+      wait_time    type i,
       group        type rzlli_apcl.
 
     methods get_free_threads
@@ -61,11 +67,10 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
 
   method clear_thread.
     field-symbols <thread> like line of me->threads_list.
-    read table me->threads_list
+    read table me->threads_list assigning <thread>
       with key
         thread = i_task
-        used = abap_true
-      assigning <thread>.
+        used = abap_true.
     <thread>-used = abap_false.
     used_threads = used_threads - 1.
   endmethod.
@@ -74,11 +79,11 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
   method constructor.
     me->group       = i_group.
     me->task_prefix = i_task_prefix.
+    me->wait_time   = i_wait_time.
 
-    " No more than 20 threads
-    if i_threads > 20.
+    if i_threads > c_max_threads.
       me->threads = 20.
-    elseif i_threads < 0.
+    elseif i_threads < 1.
       me->threads = 1.
     else.
       me->threads = i_threads.
@@ -107,7 +112,7 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
 
   method get_free_thread.
     " Wait for a free thread
-    wait until me->used_threads < me->threads up to 5 seconds.
+    wait until me->used_threads < me->threads up to me->wait_time seconds.
 
     " Get number of first free thread
     field-symbols <thread> like line of me->threads_list.
@@ -168,7 +173,7 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
       me->threads = me->threads - 1.
     endif.
 
-    wait up to 5 seconds. " Long enough for the system to update
+    wait up to 1 seconds. " Long enough for the system to update
     wait until me->used_threads lt me->threads. " Now there's an available thread
   endmethod.
 ENDCLASS.

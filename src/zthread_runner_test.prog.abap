@@ -22,7 +22,7 @@ class zcl_thread_runner_slug definition abstract.
 
     methods run_parallel
       importing
-        iv_thread_name type clike.
+        iv_thread_name type clike optional.
     methods on_end_of_task
       importing
         p_task type clike.
@@ -40,7 +40,7 @@ class zcl_thread_runner_slug definition abstract.
   protected section.
     data mv_error type string.
     data mv_ready type abap_bool.
-
+    data mo_queue_handler type ref to zcl_thread_handler.
 endclass.
 
 class zcl_thread_runner_slug implementation.
@@ -61,12 +61,20 @@ class zcl_thread_runner_slug implementation.
 
     data lv_class_name type string.
     data lv_xstr type xstring.
+    data lv_thread_name type string.
+
+    if mo_queue_handler is bound. " Queued thread
+      lv_thread_name = mo_queue_handler->get_free_thread( ).
+    else.
+      lv_thread_name = iv_thread_name.
+    endif.
+    assert lv_thread_name is not initial.
 
     lv_class_name = cl_abap_typedescr=>describe_by_object_ref( me )->absolute_name.
     lv_xstr = serialize_state( ).
 
     call function c_runner_fm_name
-      starting new task iv_thread_name
+      starting new task lv_thread_name
       destination in group zcl_thread_handler=>c_default_group " TODO !??
       calling on_end_of_task on end of task
       exporting
@@ -102,6 +110,9 @@ class zcl_thread_runner_slug implementation.
     endif.
 
     mv_ready = abap_true.
+    if mo_queue_handler is bound. " Queued thread
+      mo_queue_handler->clear_thread( |{ p_task }| ).
+    endif.
 
   endmethod.
 
@@ -132,9 +143,10 @@ class lcl_task definition final inheriting from zcl_thread_runner_slug.
 
     class-methods create " Constructor MUST be without params
       importing
-        id type i
-        name type string
+        id          type i
+        name        type string
         trigger_err type abap_bool default abap_false
+        io_queue    type ref to zcl_thread_handler optional
       returning
         value(ro_instance) type ref to lcl_task.
 
@@ -165,6 +177,7 @@ class lcl_task implementation.
     ro_instance->ms_state-id = id.
     ro_instance->ms_state-name = name.
     ro_instance->ms_state-trigger_err = trigger_err.
+    ro_instance->mo_queue_handler = io_queue.
   endmethod.
 
   method result.
@@ -188,19 +201,14 @@ endclass.
 class lcl_main definition final.
   public section.
 
-    constants c_runner_fm_name type string value 'Z_THREAD_RUNNER'.
-
     types:
       begin of ty_result,
         task type string,
-        result type string,
-        error type string,
+        runner type ref to lcl_task,
       end of ty_result.
 
     methods constructor.
     methods run.
-    methods do_stuff_in_parallel importing i_id type i.
-    methods on_end_of_action importing p_task type clike.
 
     data mo_handler type ref to zcl_thread_handler.
     data mt_results type standard table of ty_result.
@@ -218,75 +226,39 @@ class lcl_main implementation.
   method run.
 
     field-symbols <res> like line of mt_results.
+    data lv_msg type string.
 
     do 10 times.
-      me->do_stuff_in_parallel( sy-index ).
+      append initial line to mt_results assigning <res>.
+      <res>-task = sy-tabix.
+      <res>-runner = lcl_task=>create(
+        io_queue = mo_handler
+        id = 1
+        trigger_err = boolc( sy-tabix = 3 ) "one random task failed
+        name = |Task { sy-tabix }| ).
+      <res>-runner->run_parallel( ).
+
     enddo.
     wait until mo_handler->all_threads_are_finished( ) = abap_true up to 20 seconds.
 
     loop at mt_results assigning <res>.
-      if <res>-result is not initial.
-        write: / 'OK:', <res>-task, <res>-result.
+      if <res>-runner->has_error( ) = abap_false.
+        lv_msg = <res>-runner->result( ).
+        write: / 'OK:', <res>-task, lv_msg.
       else.
-        write: / 'ER:', <res>-task, <res>-error.
+        lv_msg = <res>-runner->error( ).
+        write: / 'ER:', <res>-task, lv_msg.
       endif.
     endloop.
-
-  endmethod.
-
-  method do_stuff_in_parallel.
-
-    data lv_thread_name type char8.
-    data errmsg type char255.
-
-    lv_thread_name = mo_handler->get_free_thread( ).
-
-    call function c_runner_fm_name
-      starting new task lv_thread_name
-      destination in group zcl_thread_handler=>c_default_group
-      calling on_end_of_action on end of task
-      exporting
-        i_id = i_id
-      exceptions
-        communication_failure = 1 message errmsg
-        system_failure        = 2 message errmsg
-        resource_failure      = 3
-        others                = 4.
-
-     write: / 'Start Error:', sy-subrc, errmsg.
-
-  endmethod.
-
-  method on_end_of_action.
-
-    data errmsg type c length 255.
-    field-symbols <res> like line of mt_results.
-
-    append initial line to mt_results assigning <res>.
-    <res>-task = p_task.
-
-    receive results from function c_runner_fm_name
-      importing
-        e_str = <res>-result
-      exceptions
-        communication_failure = 1 message errmsg
-        system_failure        = 2 message errmsg
-        others                = 4.
-
-    if sy-subrc is not initial.
-      if sy-subrc = 4.
-        concatenate sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 into errmsg.
-      endif.
-      <res>-error = errmsg.
-    endif.
-
-    mo_handler->clear_thread( |{ p_task }| ).
 
   endmethod.
 
 endclass.
 
 form run_single.
+
+  uline.
+  write: / 'Running same thread'.
 
   data lo_task type ref to lcl_task.
   lo_task = lcl_task=>create(
@@ -299,7 +271,7 @@ form run_single.
   data lv_class_name type string.
   lv_class_name = cl_abap_typedescr=>describe_by_object_ref( lo_task )->absolute_name.
 
-  call function lcl_main=>c_runner_fm_name
+  call function zcl_thread_runner_slug=>c_runner_fm_name
     exporting
       iv_runner_class_name = lv_class_name
       iv_raw_params        = lv_xstr
@@ -321,10 +293,7 @@ form run_single.
 
 endform.
 
-form main.
-*  data lo_app type ref to lcl_main.
-*  create object lo_app.
-*  lo_app->run( ).
+form run_1_parallel.
 
   data lv_msg type string.
   data lo_task type ref to lcl_task.
@@ -333,6 +302,7 @@ form main.
 *    trigger_err = abap_true
     name = 'Vasya' ).
 
+  uline.
   write: / 'Running parallel'.
   lo_task->run_parallel( 'thread1' ).
   wait until lo_task->is_ready( ) = abap_true up to 10 seconds.
@@ -345,8 +315,17 @@ form main.
     write: / 'Result:', lv_msg.
   endif.
 
+endform.
 
-*  perform run_single.
+form main.
+  data lo_app type ref to lcl_main.
+  create object lo_app.
+  lo_app->run( ).
+
+  perform run_1_parallel.
+  perform run_single.
+
+  uline.
   write: / 'Finished'.
 endform.
 
