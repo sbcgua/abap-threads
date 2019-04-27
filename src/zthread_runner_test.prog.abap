@@ -11,7 +11,7 @@ class lcl_task definition final inheriting from zcl_thread_runner_slug.
         id          type i
         name        type string
         trigger_err type abap_bool default abap_false
-        io_queue    type ref to zcl_thread_handler optional
+        io_queue    type ref to zcl_thread_queue_handler optional
       returning
         value(ro_instance) type ref to lcl_task.
 
@@ -124,7 +124,7 @@ class lcl_reducer implementation.
 
   method run.
 
-    data lo_handler type ref to zcl_thread_handler.
+    data lo_handler type ref to zcl_thread_queue_handler.
     create object lo_handler
       exporting
         i_threads = ms_state-threads.
@@ -173,7 +173,7 @@ class lcl_main definition final.
     methods constructor.
     methods run.
 
-    data mo_handler type ref to zcl_thread_handler.
+    data mo_handler type ref to zcl_thread_queue_handler.
     data mt_results type standard table of ty_result.
 
 endclass.

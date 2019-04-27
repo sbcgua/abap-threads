@@ -40,8 +40,7 @@ class ZCL_THREAD_RUNNER_SLUG definition
 
     data mv_error type string.
     data mv_ready type abap_bool.
-    data mo_queue_handler type ref to zcl_thread_handler.
-
+    data mo_queue_handler type ref to zcl_thread_queue_handler.
   private section.
 ENDCLASS.
 
@@ -118,7 +117,7 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
 
     call function c_runner_fm_name
       starting new task lv_thread_name
-      destination in group zcl_thread_handler=>c_default_group " TODO !??
+      destination in group zcl_thread_queue_handler=>c_default_group " TODO !??
       calling on_end_of_task on end of task
       exporting
         iv_runner_class_name = lv_class_name

@@ -1,37 +1,37 @@
-class zcl_thread_handler definition
+class ZCL_THREAD_QUEUE_HANDLER definition
   public
   final
   create public .
 
-  public section.
-    type-pools abap .
-    types ty_thread_name_prefix type c length 6.
-    types ty_thread_name        type c length 8.
+public section.
+  type-pools ABAP .
 
-    constants:
-      c_default_group       type rzlli_apcl value 'parallel_generators', "#EC NOTEXT
-      c_default_task_prefix type ty_thread_name_prefix value 'PARALL',   "#EC NOTEXT
-      c_default_wait_time   type i value 5,
-      c_max_threads         type i value 20.
+  types:
+    ty_thread_name_prefix type c length 6 .
+  types:
+    ty_thread_name        type c length 8 .
 
-    methods:
-      constructor
-        importing
-          !i_threads     type i
-          !i_wait_time   type i default c_default_wait_time
-          !i_task_prefix type ty_thread_name_prefix default c_default_task_prefix
-          !i_group       type rzlli_apcl default c_default_group,
-      all_threads_are_finished
-        returning
-          value(r_empty) type abap_bool,
-      clear_thread
-        importing
-          !i_task type ty_thread_name,
-      handle_resource_failure,
-      get_free_thread
-        returning
-          value(r_thread) type ty_thread_name .
+  constants C_DEFAULT_GROUP type RZLLI_APCL value 'parallel_generators'. "#EC NOTEXT
+  constants C_DEFAULT_TASK_PREFIX type TY_THREAD_NAME_PREFIX value 'PARALL'. "#EC NOTEXT
+  constants C_DEFAULT_WAIT_TIME type I value 5. "#EC NOTEXT
+  constants C_MAX_THREADS type I value 20. "#EC NOTEXT
 
+  methods constructor
+    importing
+      !i_threads type i
+      !i_wait_time type i default c_default_wait_time
+      !i_task_prefix type ty_thread_name_prefix default c_default_task_prefix
+      !i_group type rzlli_apcl default c_default_group .
+  methods all_threads_are_finished
+    returning
+      value(r_empty) type abap_bool .
+  methods clear_thread
+    importing
+      !i_task type ty_thread_name .
+  methods handle_resource_failure .
+  methods get_free_thread
+    returning
+      value(r_thread) type ty_thread_name .
   protected section.
 
   private section.
@@ -57,15 +57,15 @@ ENDCLASS.
 
 
 
-CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
+CLASS ZCL_THREAD_QUEUE_HANDLER IMPLEMENTATION.
 
 
-  method all_threads_are_finished.
+  method ALL_THREADS_ARE_FINISHED.
     r_empty = boolc( used_threads = 0 ).
   endmethod.
 
 
-  method clear_thread.
+  method CLEAR_THREAD.
     field-symbols <thread> like line of me->threads_list.
     read table me->threads_list assigning <thread>
       with key
@@ -76,7 +76,7 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
   endmethod.
 
 
-  method constructor.
+  method CONSTRUCTOR.
     me->group       = i_group.
     me->task_prefix = i_task_prefix.
     me->wait_time   = i_wait_time.
@@ -110,7 +110,7 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
   endmethod.
 
 
-  method get_free_thread.
+  method GET_FREE_THREAD.
     " Wait for a free thread
     wait until me->used_threads < me->threads up to me->wait_time seconds.
 
@@ -124,7 +124,7 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
   endmethod.
 
 
-  method get_free_threads.
+  method GET_FREE_THREADS.
     " Get number of free threads
     call function 'SPBT_INITIALIZE'
       exporting
@@ -166,7 +166,7 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
   endmethod.
 
 
-  method handle_resource_failure.
+  method HANDLE_RESOURCE_FAILURE.
     data free_threads type i.
     free_threads = me->get_free_threads( ).
     if free_threads <= 1 and me->threads > 1.
