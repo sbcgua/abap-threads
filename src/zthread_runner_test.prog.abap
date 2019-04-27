@@ -7,7 +7,6 @@ class zcl_thread_runner_slug definition abstract.
 
   public section.
     constants c_runner_fm_name type string value 'Z_THREAD_RUNNER'.
-    constants c_default_state_member_name type c length 10 value 'MS_STATE'.
 
     methods run abstract.
     methods get_state_ref abstract
