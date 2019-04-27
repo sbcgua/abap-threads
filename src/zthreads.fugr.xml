@@ -10,18 +10,18 @@
    <FUNCTIONS>
     <item>
      <FUNCNAME>ZTHREAD_TESTWORK</FUNCNAME>
+     <REMOTE_CALL>R</REMOTE_CALL>
      <SHORT_TEXT>Threads test</SHORT_TEXT>
      <IMPORT>
       <RSIMP>
        <PARAMETER>I_ID</PARAMETER>
-       <REFERENCE>X</REFERENCE>
        <TYP>I</TYP>
       </RSIMP>
      </IMPORT>
      <EXPORT>
       <RSEXP>
        <PARAMETER>E_STR</PARAMETER>
-       <REFERENCE>X</REFERENCE>
+       <TYP>STRING</TYP>
       </RSEXP>
      </EXPORT>
      <DOCUMENTATION>

@@ -107,7 +107,7 @@ CLASS ZCL_THREAD_HANDLER IMPLEMENTATION.
 
   method get_free_thread.
     " Wait for a free thread
-    wait until me->used_threads < me->threads.
+    wait until me->used_threads < me->threads up to 5 seconds.
 
     " Get number of first free thread
     field-symbols <thread> like line of me->threads_list.

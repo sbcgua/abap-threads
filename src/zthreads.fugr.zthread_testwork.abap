@@ -2,9 +2,9 @@ FUNCTION ZTHREAD_TESTWORK.
 *"----------------------------------------------------------------------
 *"*"Local Interface:
 *"  IMPORTING
-*"     REFERENCE(I_ID) TYPE  I
+*"     VALUE(I_ID) TYPE  I
 *"  EXPORTING
-*"     REFERENCE(E_STR)
+*"     VALUE(E_STR) TYPE  STRING
 *"----------------------------------------------------------------------
 
   e_str = |DOING TASK { I_ID }|.

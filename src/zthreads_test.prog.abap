@@ -25,7 +25,7 @@ class lcl_main implementation.
     do 2 times.
       me->do_stuff_in_parallel( sy-index ).
     enddo.
-    wait until mo_handler->all_threads_are_finished( ) = abap_true.
+    wait until mo_handler->all_threads_are_finished( ) = abap_true up to 20 seconds.
 
   endmethod.
 
@@ -61,10 +61,13 @@ class lcl_main implementation.
         e_str = l_result
       exceptions
         communication_failure = 1 message errmsg
-        system_failure        = 2 message errmsg.
+        system_failure        = 2 message errmsg
+        OTHERS                = 4.
 
     if sy-subrc is not initial.
       write: / 'Finish Error:', sy-subrc.
+      write: / errmsg.
+      write: / sy-msgid, sy-msgno, sy-msgv1, sy-msgv2, sy-msgv3, sy-msgv4.
     endif.
 
     " Free the thread for the next thread to run
