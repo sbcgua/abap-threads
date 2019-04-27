@@ -13,13 +13,13 @@ public section.
 
   constants c_default_group type rzlli_apcl value 'parallel_generators'. "#EC NOTEXT
   constants c_default_task_prefix type ty_thread_name_prefix value 'PARALL'. "#EC NOTEXT
-  constants c_default_wait_time type i value 5. "#EC NOTEXT
-  constants c_max_threads type i value 20. "#EC NOTEXT
+  constants c_default_timeout type i value 5.
+  constants c_max_threads type i value 20.
 
   methods constructor
     importing
       !i_threads type i
-      !i_wait_time type i default c_default_wait_time
+      !i_timeout type i default c_default_timeout
       !i_task_prefix type ty_thread_name_prefix default c_default_task_prefix
       !i_group type rzlli_apcl default c_default_group .
   methods all_threads_are_finished
@@ -51,7 +51,7 @@ public section.
       threads_list type standard table of ty_thread with default key,
       threads      type i,
       used_threads type i,
-      wait_time    type i,
+      timeout      type i,
       group        type rzlli_apcl.
 
     methods get_free_threads
@@ -83,7 +83,7 @@ CLASS ZCL_THREAD_QUEUE_HANDLER IMPLEMENTATION.
   method CONSTRUCTOR.
     me->group       = i_group.
     me->task_prefix = i_task_prefix.
-    me->wait_time   = i_wait_time.
+    me->timeout     = i_timeout.
 
     if i_threads > c_max_threads.
       me->threads = 20.
@@ -116,7 +116,7 @@ CLASS ZCL_THREAD_QUEUE_HANDLER IMPLEMENTATION.
 
   method GET_FREE_THREAD.
     " Wait for a free thread
-    wait until me->used_threads < me->threads up to me->wait_time seconds.
+    wait until me->used_threads < me->threads up to me->timeout seconds.
 
     " Get number of first free thread
     field-symbols <thread> like line of me->threads_list.
