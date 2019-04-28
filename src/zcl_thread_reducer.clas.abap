@@ -1,58 +1,60 @@
 class ZCL_THREAD_REDUCER definition
-  inheriting from zcl_thread_runner_slug
   public
+  inheriting from ZCL_THREAD_RUNNER_SLUG
   abstract
   create public .
 
-  public section.
+public section.
 
-    constants c_default_reduce_timeout type i value 300.
-
-    types:
-      begin of ty_state,
+  types:
+    begin of ty_state,
         threads        type i,
         task_timeout   type i,
         reduce_timeout type i,
         task_prefix    type zcl_thread_queue_dispatcher=>ty_thread_name_prefix,
         server_group   type rzlli_apcl,
-      end of ty_state.
-
-    types:
-      begin of ty_state_with_payload,
+      end of ty_state .
+  types:
+    begin of ty_state_with_payload,
         state type ty_state,
         payload_buffer type xstring,
-      end of ty_state_with_payload,
-      begin of ty_queue,
+      end of ty_state_with_payload .
+  types:
+    begin of ty_queue,
         runner type ref to zcl_thread_runner_slug,
-      end of ty_queue.
+      end of ty_queue .
 
-    methods set_run_params " Constructor MUST be without params
-      importing
-        iv_threads        type i
-        iv_task_timeout   type i default zcl_thread_queue_dispatcher=>c_default_timeout
-        iv_reduce_timeout type i default c_default_reduce_timeout
-        iv_task_prefix    type ty_state-task_prefix default zcl_thread_queue_dispatcher=>c_default_task_prefix
-        iv_server_group   type ty_state-server_group default zcl_thread_queue_dispatcher=>c_default_group.
+  constants C_DEFAULT_REDUCE_TIMEOUT type I value 300. "#EC NOTEXT
 
-    methods run redefinition.
-    methods serialize_state redefinition.
-    methods deserialize_state redefinition.
+  methods SET_RUN_PARAMS   " Constructor MUST be without params
+    importing
+      !IV_THREADS type I
+      !IV_TASK_TIMEOUT type I default ZCL_THREAD_QUEUE_DISPATCHER=>C_DEFAULT_TIMEOUT
+      !IV_REDUCE_TIMEOUT type I default C_DEFAULT_REDUCE_TIMEOUT
+      !IV_TASK_PREFIX type TY_STATE-TASK_PREFIX default ZCL_THREAD_QUEUE_DISPATCHER=>C_DEFAULT_TASK_PREFIX
+      !IV_SERVER_GROUP type TY_STATE-SERVER_GROUP default ZCL_THREAD_QUEUE_DISPATCHER=>C_DEFAULT_GROUP .
+  methods CREATE_RUNNER
+  abstract
+    importing
+      !IO_QUEUE_DISPATCHER type ref to ZCL_THREAD_QUEUE_DISPATCHER
+      !IV_INDEX type I
+      !IV_PAYLOAD type DATA
+    returning
+      value(RO_INSTANCE) type ref to ZCL_THREAD_RUNNER_SLUG .
+  methods EXTRACT_RESULT
+  abstract
+    importing
+      !IO_RUNNER type ref to ZCL_THREAD_RUNNER_SLUG
+      !IV_INDEX type I
+    changing
+      !CV_PAYLOAD type DATA .
 
-    methods create_runner abstract
-      importing
-        io_queue_dispatcher type ref to zcl_thread_queue_dispatcher
-        iv_index            type i
-        iv_payload          type data
-      returning
-        value(ro_instance) type ref to zcl_thread_runner_slug.
-
-    methods extract_result abstract
-      importing
-        io_runner type ref to zcl_thread_runner_slug
-        iv_index  type i
-      changing
-        cv_payload type data.
-
+  methods DESERIALIZE_STATE
+    redefinition .
+  methods RUN
+    redefinition .
+  methods SERIALIZE_STATE
+    redefinition .
   protected section.
 
     data ms_state type ty_state. " TODO reconsider visibility ????
