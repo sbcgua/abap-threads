@@ -93,7 +93,10 @@ CLASS ZCL_THREAD_REDUCER IMPLEMENTATION.
     data lo_dispatcher type ref to zcl_thread_queue_dispatcher.
     create object lo_dispatcher
       exporting
-        i_threads = ms_state-threads.
+        i_threads     = ms_state-threads
+        i_task_prefix = ms_state-task_prefix
+        i_group       = ms_state-server_group
+        i_timeout     = ms_state-task_timeout.
 
     data lt_queue type standard table of ty_queue.
     field-symbols <q> like line of lt_queue.
