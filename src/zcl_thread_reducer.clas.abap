@@ -24,36 +24,36 @@ public section.
         runner type ref to zcl_thread_runner_slug,
       end of ty_queue .
 
-  constants C_DEFAULT_REDUCE_TIMEOUT type I value 300. "#EC NOTEXT
+  constants c_default_reduce_timeout type i value 300. "#EC NOTEXT
 
-  methods SET_RUN_PARAMS   " Constructor MUST be without params
+  methods set_run_params   " constructor must be without params
     importing
-      !IV_THREADS type I
-      !IV_TASK_TIMEOUT type I default ZCL_THREAD_QUEUE_DISPATCHER=>C_DEFAULT_TIMEOUT
-      !IV_REDUCE_TIMEOUT type I default C_DEFAULT_REDUCE_TIMEOUT
-      !IV_TASK_PREFIX type TY_STATE-TASK_PREFIX default ZCL_THREAD_QUEUE_DISPATCHER=>C_DEFAULT_TASK_PREFIX
-      !IV_SERVER_GROUP type TY_STATE-SERVER_GROUP default ZCL_THREAD_QUEUE_DISPATCHER=>C_DEFAULT_GROUP .
-  methods CREATE_RUNNER
+      !iv_threads type i
+      !iv_task_timeout type i default zcl_thread_queue_dispatcher=>c_default_timeout
+      !iv_reduce_timeout type i default c_default_reduce_timeout
+      !iv_task_prefix type ty_state-task_prefix default zcl_thread_queue_dispatcher=>c_default_task_prefix
+      !iv_server_group type ty_state-server_group default zcl_thread_queue_dispatcher=>c_default_group .
+  methods create_runner
   abstract
     importing
-      !IO_QUEUE_DISPATCHER type ref to ZCL_THREAD_QUEUE_DISPATCHER
-      !IV_INDEX type I
-      !IV_PAYLOAD type DATA
+      !io_queue_dispatcher type ref to zcl_thread_queue_dispatcher
+      !iv_index type i
+      !iv_payload type data
     returning
-      value(RO_INSTANCE) type ref to ZCL_THREAD_RUNNER_SLUG .
-  methods EXTRACT_RESULT
+      value(ro_instance) type ref to zcl_thread_runner_slug .
+  methods extract_result
   abstract
     importing
-      !IO_RUNNER type ref to ZCL_THREAD_RUNNER_SLUG
-      !IV_INDEX type I
+      !io_runner type ref to zcl_thread_runner_slug
+      !iv_index type i
     changing
-      !CV_PAYLOAD type DATA .
+      !cv_payload type data .
 
-  methods DESERIALIZE_STATE
+  methods deserialize_state
     redefinition .
-  methods RUN
+  methods run
     redefinition .
-  methods SERIALIZE_STATE
+  methods serialize_state
     redefinition .
   protected section.
 
