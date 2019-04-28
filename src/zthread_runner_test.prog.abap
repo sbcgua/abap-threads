@@ -65,64 +65,108 @@ endclass.
 
 **********************************************************************
 
-class lcl_reducer definition final inheriting from zcl_thread_runner_slug.
+class zcl_thread_reducer definition abstract inheriting from zcl_thread_runner_slug.
   public section.
 
+    constants c_default_reduce_timeout type i value 300.
+
     types:
-      begin of ty_result,
-        task   type string,
-        error  type string,
-        result type string,
-      end of ty_result,
-      tt_result type standard table of ty_result with key task,
-      begin of ty_state,
-        threads type i,
-        tasks   type i,
-        result  type tt_result,
+      begin of ty_state, " TODO defaults !
+        threads        type i,
+        task_timeout   type i, " default c_default_timeout
+        reduce_timeout type i, " default ???
+        task_prefix    type zcl_thread_queue_handler=>ty_thread_name_prefix, " default c_default_task_prefix
+        server_group   type rzlli_apcl, " default c_default_group .
       end of ty_state.
 
     types:
+      begin of ty_state_with_payload,
+        state type ty_state,
+        payload_buffer type xstring,
+      end of ty_state_with_payload,
       begin of ty_queue,
-        task type string,
-        runner type ref to lcl_task,
+        runner type ref to zcl_thread_runner_slug,
       end of ty_queue.
 
-    class-methods create " Constructor MUST be without params
+    methods set_run_params " Constructor MUST be without params
       importing
-        iv_threads type i
-        iv_tasks   type i
-      returning
-        value(ro_instance) type ref to lcl_reducer.
-
-    methods result
-      returning
-        value(rt_result) type tt_result.
+        iv_threads        type i
+        iv_task_timeout   type i default zcl_thread_queue_handler=>c_default_timeout
+        iv_reduce_timeout type i default c_default_reduce_timeout
+        iv_task_prefix    type zcl_thread_queue_handler=>ty_thread_name_prefix default zcl_thread_queue_handler=>c_default_task_prefix
+        iv_server_group   type rzlli_apcl default zcl_thread_queue_handler=>c_default_group.
 
     methods run redefinition.
-    methods get_state_ref redefinition.
+    methods serialize_state redefinition.
+    methods deserialize_state redefinition.
 
-  private section.
-    data ms_state type ty_state.
+    methods create_runner abstract
+      importing
+        io_queue_handler type ref to zcl_thread_queue_handler
+        iv_index         type i
+        iv_payload       type data
+      returning
+        value(ro_instance) type ref to zcl_thread_runner_slug.
+
+    methods extract_result abstract
+      importing
+        io_runner type ref to zcl_thread_runner_slug
+        iv_index  type i
+      changing
+        cv_payload type data.
+
+  protected section.
+    data ms_state type ty_state. " TODO reconsider visibility ????
 
 endclass.
 
-class lcl_reducer implementation.
+class zcl_thread_reducer implementation.
 
-  method create.
-    create object ro_instance.
-    ro_instance->ms_state-threads = iv_threads.
-    ro_instance->ms_state-tasks = iv_tasks.
+  method set_run_params.
+    ms_state-threads        = iv_threads.
+    ms_state-task_timeout   = iv_task_timeout.
+    ms_state-reduce_timeout = iv_reduce_timeout.
+    ms_state-task_prefix    = iv_task_prefix.
+    ms_state-server_group   = iv_server_group.
   endmethod.
 
-  method result.
-    rt_result = ms_state-result.
+  method deserialize_state.
+    data ls_state_w_payload type ty_state_with_payload.
+    data lv_ref type ref to data.
+    field-symbols <ptr> type data.
+
+    assign ls_state_w_payload to <ptr>.
+    import data = <ptr> from data buffer iv_xstr.
+    assert sy-subrc = 0.
+
+    lv_ref = get_state_ref( ).
+    assign lv_ref->* to <ptr>.
+    import data = <ptr> from data buffer ls_state_w_payload-payload_buffer.
+    assert sy-subrc = 0.
+    ms_state = ls_state_w_payload-state.
   endmethod.
 
-  method get_state_ref.
-    get reference of ms_state into rv_ref.
+  method serialize_state.
+    data ls_state_w_payload type ty_state_with_payload.
+    data lv_ref type ref to data.
+    field-symbols <ptr> type data.
+
+    ls_state_w_payload-state = ms_state.
+    lv_ref = get_state_ref( ).
+    assign lv_ref->* to <ptr>.
+    export data = <ptr> to data buffer ls_state_w_payload-payload_buffer.
+    assert sy-subrc = 0.
+
+    assign ls_state_w_payload to <ptr>.
+    export data = <ptr> to data buffer rv_xstr.
+    assert sy-subrc = 0.
   endmethod.
 
   method run.
+
+    data lv_ref type ref to data.
+    field-symbols <payload_tab> type any table.
+    field-symbols <payload> type data.
 
     data lo_handler type ref to zcl_thread_queue_handler.
     create object lo_handler
@@ -132,26 +176,102 @@ class lcl_reducer implementation.
     data lt_queue type standard table of ty_queue.
     field-symbols <q> like line of lt_queue.
 
-    do ms_state-tasks times.
-      append initial line to lt_queue assigning <q>.
-      <q>-task = sy-tabix.
-      <q>-runner = lcl_task=>create(
-        io_queue = lo_handler
-        id = sy-tabix
-        trigger_err = boolc( sy-tabix = 4 ) "one random task failed
-        name = |Task { sy-tabix }| ).
-      <q>-runner->run_parallel( ).
+    lv_ref = get_state_ref( ).
+    assign lv_ref->* to <payload_tab>.
 
-    enddo.
+    loop at <payload_tab> assigning <payload>.
+      append initial line to lt_queue assigning <q>.
+      <q>-runner = create_runner(
+        io_queue_handler = lo_handler
+        iv_index         = sy-tabix
+        iv_payload       = <payload> ).
+      <q>-runner->run_parallel( ).
+    endloop.
     wait until lo_handler->all_threads_are_finished( ) = abap_true up to 20 seconds.
 
-    field-symbols <res> like line of ms_state-result.
-    loop at lt_queue assigning <q>.
-      append initial line to ms_state-result assigning <res>.
-      <res>-task   = <q>-task.
-      <res>-result = <q>-runner->result( ).
-      <res>-error  = <q>-runner->error( ).
+    loop at <payload_tab> assigning <payload>.
+      read table lt_queue assigning <q> index sy-tabix.
+      assert sy-subrc = 0.
+      extract_result(
+        exporting
+          io_runner = <q>-runner
+          iv_index  = sy-tabix
+        changing
+          cv_payload = <payload> ).
     endloop.
+
+  endmethod.
+
+endclass.
+
+class lcl_reducer definition final inheriting from zcl_thread_reducer.
+  public section.
+
+    types:
+      begin of ty_subject,
+        payload type string,
+        task    type string,
+        error   type string,
+        result  type string,
+      end of ty_subject,
+      tt_subject type standard table of ty_subject with key task.
+
+    class-methods create " Constructor MUST be without params
+      importing
+        iv_threads  type i
+        it_subjects type tt_subject
+      returning
+        value(ro_instance) type ref to lcl_reducer.
+
+    methods result
+      returning
+        value(rt_result) type tt_subject.
+
+    methods get_state_ref redefinition.
+    methods create_runner redefinition.
+    methods extract_result redefinition.
+
+  private section.
+    data mt_subjects type tt_subject.
+
+endclass.
+
+class lcl_reducer implementation.
+
+  method create.
+    create object ro_instance.
+    ro_instance->set_run_params( iv_threads = iv_threads ).
+    ro_instance->mt_subjects = it_subjects.
+  endmethod.
+
+  method get_state_ref.
+    get reference of mt_subjects into rv_ref.
+  endmethod.
+
+  method result.
+    rt_result = mt_subjects.
+  endmethod.
+
+  method create_runner.
+
+    ro_instance = lcl_task=>create(
+      io_queue = io_queue_handler
+      id       = iv_index
+      trigger_err = boolc( iv_index = 4 ) "one random task failed
+      name = |Task { iv_index }| ).
+
+  endmethod.
+
+  method extract_result.
+
+    data lo_runner type ref to lcl_task.
+    field-symbols <res> like line of mt_subjects.
+
+    assign cv_payload to <res>.
+    lo_runner   ?= io_runner.
+    <res>-task   = iv_index.
+    <res>-result = lo_runner->result( ).
+    <res>-error  = lo_runner->error( ).
 
   endmethod.
 
@@ -282,17 +402,25 @@ endform.
 
 form run_with_reducer.
 
+  " Payload
+  data lt_subjects type lcl_reducer=>tt_subject.
+  field-symbols <s> like line of lt_subjects.
+  do 8 times.
+    append initial line to lt_subjects assigning <s>.
+    <s>-payload = sy-tabix.
+  enddo.
+
   data lo_reducer type ref to lcl_reducer.
   lo_reducer = lcl_reducer=>create(
-    iv_threads = 2
-    iv_tasks   = 8 ).
+    iv_threads  = 2
+    it_subjects = lt_subjects ).
 
   uline.
   write: / 'Running parallel with reducer'.
   lo_reducer->run_parallel( 'reducer' ).
   wait until lo_reducer->is_ready( ) = abap_true up to 10 seconds.
 
-  data lt_results type lcl_reducer=>tt_result.
+  data lt_results type lcl_reducer=>tt_subject.
   field-symbols <r> like line of lt_results.
 
   lt_results = lo_reducer->result( ).
