@@ -3,42 +3,40 @@ class ZCL_THREAD_RUNNER_SLUG definition
   abstract
   create public .
 
-  public section.
+public section.
 
-    constants c_runner_fm_name type string value 'Z_THREAD_RUNNER'.
+  constants C_RUNNER_FM_NAME type STRING value 'Z_THREAD_RUNNER'. "#EC NOTEXT
 
-    methods run abstract.
-    methods get_state_ref abstract
-      returning
-        value(rv_ref) type ref to data.
-
-    methods serialize_state
-      returning
-        value(rv_xstr) type xstring.
-    methods deserialize_state
-      importing
-        iv_xstr type xstring.
-
-    methods run_parallel
-      importing
-        iv_thread_name type clike optional.
-    methods on_end_of_task
-      importing
-        p_task type clike.
-
-    methods is_ready
-      returning
-        value(rv_yes) type abap_bool.
-    methods has_error
-      returning
-        value(rv_yes) type abap_bool.
-    methods error
-      returning
-        value(rv_error) type string.
-    methods set_dispatcher
-      importing
-        io_dispatcher type ref to zcl_thread_queue_dispatcher.
-
+  methods RUN
+  abstract .
+  methods GET_STATE_REF
+  abstract
+    returning
+      value(RV_REF) type ref to DATA .
+  methods SERIALIZE_STATE
+    returning
+      value(RV_XSTR) type XSTRING .
+  methods DESERIALIZE_STATE
+    importing
+      !IV_XSTR type XSTRING .
+  methods RUN_PARALLEL
+    importing
+      !IV_THREAD_NAME type CLIKE optional .
+  methods ON_END_OF_TASK
+    importing
+      !P_TASK type CLIKE .
+  methods IS_READY
+    returning
+      value(RV_YES) type ABAP_BOOL .
+  methods HAS_ERROR
+    returning
+      value(RV_YES) type ABAP_BOOL .
+  methods ERROR
+    returning
+      value(RV_ERROR) type STRING .
+  methods SET_DISPATCHER
+    importing
+      !IO_DISPATCHER type ref to ZCL_THREAD_QUEUE_DISPATCHER .
   protected section.
 
     data mv_error type string.
