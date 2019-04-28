@@ -1,10 +1,10 @@
-class ZCL_THREAD_QUEUE_HANDLER definition
+class ZCL_THREAD_QUEUE_DISPATCHER definition
   public
   final
   create public .
 
 public section.
-  type-pools ABAP .
+  type-pools abap .
 
   types:
     ty_thread_name_prefix type c length 6 .
@@ -13,8 +13,8 @@ public section.
 
   constants c_default_group type rzlli_apcl value 'parallel_generators'. "#EC NOTEXT
   constants c_default_task_prefix type ty_thread_name_prefix value 'PARALL'. "#EC NOTEXT
-  constants c_default_timeout type i value 5.
-  constants c_max_threads type i value 20.
+  constants c_default_timeout type i value 5. "#EC NOTEXT
+  constants c_max_threads type i value 20. "#EC NOTEXT
 
   methods constructor
     importing
@@ -34,8 +34,7 @@ public section.
       value(r_thread) type ty_thread_name .
   methods get_server_group
     returning
-      value(r_server_group) type rzlli_apcl.
-
+      value(r_server_group) type rzlli_apcl .
   protected section.
 
   private section.
@@ -61,7 +60,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_THREAD_QUEUE_HANDLER IMPLEMENTATION.
+CLASS ZCL_THREAD_QUEUE_DISPATCHER IMPLEMENTATION.
 
 
   method ALL_THREADS_ARE_FINISHED.
@@ -170,7 +169,7 @@ CLASS ZCL_THREAD_QUEUE_HANDLER IMPLEMENTATION.
   endmethod.
 
 
-  method get_server_group.
+  method GET_SERVER_GROUP.
     r_server_group = me->group.
   endmethod.
 

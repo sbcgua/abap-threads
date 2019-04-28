@@ -35,12 +35,16 @@ class ZCL_THREAD_RUNNER_SLUG definition
     methods error
       returning
         value(rv_error) type string.
+    methods set_dispatcher
+      importing
+        io_dispatcher type ref to zcl_thread_queue_dispatcher.
 
   protected section.
 
     data mv_error type string.
     data mv_ready type abap_bool.
-    data mo_queue_handler type ref to zcl_thread_queue_handler.
+    data mo_queue_dispatcher type ref to zcl_thread_queue_dispatcher.
+
   private section.
 ENDCLASS.
 
@@ -92,8 +96,8 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
     endif.
 
     mv_ready = abap_true.
-    if mo_queue_handler is bound. " Queued thread
-      mo_queue_handler->clear_thread( |{ p_task }| ).
+    if mo_queue_dispatcher is bound. " Queued thread
+      mo_queue_dispatcher->clear_thread( |{ p_task }| ).
     endif.
 
   endmethod.
@@ -106,11 +110,11 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
     data lv_thread_name type string.
     data lv_server_group type rzlli_apcl.
 
-    lv_server_group = zcl_thread_queue_handler=>c_default_group.
+    lv_server_group = zcl_thread_queue_dispatcher=>c_default_group.
     lv_thread_name  = iv_thread_name.
-    if mo_queue_handler is bound. " Queued thread
-      lv_server_group = mo_queue_handler->get_server_group( ).
-      lv_thread_name  = mo_queue_handler->get_free_thread( ).
+    if mo_queue_dispatcher is bound. " Queued thread
+      lv_server_group = mo_queue_dispatcher->get_server_group( ).
+      lv_thread_name  = mo_queue_dispatcher->get_free_thread( ).
     endif.
     assert lv_thread_name is not initial.
 
@@ -146,5 +150,10 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
     assign lv_ref->* to <state>.
     export data = <state> to data buffer rv_xstr.
     assert sy-subrc = 0.
+  endmethod.
+
+
+  method set_dispatcher.
+    mo_queue_dispatcher = io_dispatcher.
   endmethod.
 ENDCLASS.

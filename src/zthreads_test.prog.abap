@@ -16,7 +16,7 @@ class lcl_main definition final.
     methods on_end_of_action importing p_task type clike.
     methods report.
 
-    data mo_handler type ref to zcl_thread_queue_handler.
+    data mo_handler type ref to zcl_thread_queue_dispatcher.
     data mt_results type standard table of ty_result.
 
 endclass.
@@ -60,7 +60,7 @@ class lcl_main implementation.
 
     call function 'Z_THREAD_TESTWORK'
       starting new task lv_thread_name
-      destination in group zcl_thread_queue_handler=>c_default_group
+      destination in group zcl_thread_queue_dispatcher=>c_default_group
       calling on_end_of_action on end of task
       exporting
         i_id = i_id

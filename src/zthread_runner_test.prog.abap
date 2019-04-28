@@ -8,10 +8,10 @@ class lcl_task definition final inheriting from zcl_thread_runner_slug.
 
     class-methods create " Constructor MUST be without params
       importing
-        id          type i
-        name        type string
-        trigger_err type abap_bool default abap_false
-        io_queue    type ref to zcl_thread_queue_handler optional
+        id            type i
+        name          type string
+        trigger_err   type abap_bool default abap_false
+        io_dispatcher type ref to zcl_thread_queue_dispatcher optional
       returning
         value(ro_instance) type ref to lcl_task.
 
@@ -42,7 +42,7 @@ class lcl_task implementation.
     ro_instance->ms_state-id = id.
     ro_instance->ms_state-name = name.
     ro_instance->ms_state-trigger_err = trigger_err.
-    ro_instance->mo_queue_handler = io_queue.
+    ro_instance->set_dispatcher( io_dispatcher ).
   endmethod.
 
   method result.
@@ -71,12 +71,12 @@ class zcl_thread_reducer definition abstract inheriting from zcl_thread_runner_s
     constants c_default_reduce_timeout type i value 300.
 
     types:
-      begin of ty_state, " TODO defaults !
+      begin of ty_state,
         threads        type i,
-        task_timeout   type i, " default c_default_timeout
-        reduce_timeout type i, " default ???
-        task_prefix    type zcl_thread_queue_handler=>ty_thread_name_prefix, " default c_default_task_prefix
-        server_group   type rzlli_apcl, " default c_default_group .
+        task_timeout   type i,
+        reduce_timeout type i,
+        task_prefix    type zcl_thread_queue_dispatcher=>ty_thread_name_prefix,
+        server_group   type rzlli_apcl,
       end of ty_state.
 
     types:
@@ -91,10 +91,10 @@ class zcl_thread_reducer definition abstract inheriting from zcl_thread_runner_s
     methods set_run_params " Constructor MUST be without params
       importing
         iv_threads        type i
-        iv_task_timeout   type i default zcl_thread_queue_handler=>c_default_timeout
+        iv_task_timeout   type i default zcl_thread_queue_dispatcher=>c_default_timeout
         iv_reduce_timeout type i default c_default_reduce_timeout
-        iv_task_prefix    type zcl_thread_queue_handler=>ty_thread_name_prefix default zcl_thread_queue_handler=>c_default_task_prefix
-        iv_server_group   type rzlli_apcl default zcl_thread_queue_handler=>c_default_group.
+        iv_task_prefix    type ty_state-task_prefix default zcl_thread_queue_dispatcher=>c_default_task_prefix
+        iv_server_group   type ty_state-server_group default zcl_thread_queue_dispatcher=>c_default_group.
 
     methods run redefinition.
     methods serialize_state redefinition.
@@ -102,9 +102,9 @@ class zcl_thread_reducer definition abstract inheriting from zcl_thread_runner_s
 
     methods create_runner abstract
       importing
-        io_queue_handler type ref to zcl_thread_queue_handler
-        iv_index         type i
-        iv_payload       type data
+        io_queue_dispatcher type ref to zcl_thread_queue_dispatcher
+        iv_index            type i
+        iv_payload          type data
       returning
         value(ro_instance) type ref to zcl_thread_runner_slug.
 
@@ -168,8 +168,8 @@ class zcl_thread_reducer implementation.
     field-symbols <payload_tab> type any table.
     field-symbols <payload> type data.
 
-    data lo_handler type ref to zcl_thread_queue_handler.
-    create object lo_handler
+    data lo_dispatcher type ref to zcl_thread_queue_dispatcher.
+    create object lo_dispatcher
       exporting
         i_threads = ms_state-threads.
 
@@ -182,12 +182,12 @@ class zcl_thread_reducer implementation.
     loop at <payload_tab> assigning <payload>.
       append initial line to lt_queue assigning <q>.
       <q>-runner = create_runner(
-        io_queue_handler = lo_handler
-        iv_index         = sy-tabix
-        iv_payload       = <payload> ).
+        io_queue_dispatcher = lo_dispatcher
+        iv_index            = sy-tabix
+        iv_payload          = <payload> ).
       <q>-runner->run_parallel( ).
     endloop.
-    wait until lo_handler->all_threads_are_finished( ) = abap_true up to 20 seconds.
+    wait until lo_dispatcher->all_threads_are_finished( ) = abap_true up to 20 seconds.
 
     loop at <payload_tab> assigning <payload>.
       read table lt_queue assigning <q> index sy-tabix.
@@ -255,10 +255,10 @@ class lcl_reducer implementation.
   method create_runner.
 
     ro_instance = lcl_task=>create(
-      io_queue = io_queue_handler
-      id       = iv_index
-      trigger_err = boolc( iv_index = 4 ) "one random task failed
-      name = |Task { iv_index }| ).
+      io_dispatcher = io_queue_dispatcher
+      id            = iv_index
+      trigger_err   = boolc( iv_index = 4 ) "one random task failed
+      name          = |Task { iv_index }| ).
 
   endmethod.
 
@@ -293,7 +293,7 @@ class lcl_main definition final.
     methods constructor.
     methods run.
 
-    data mo_handler type ref to zcl_thread_queue_handler.
+    data mo_dispatcher type ref to zcl_thread_queue_dispatcher.
     data mt_results type standard table of ty_result.
 
 endclass.
@@ -301,7 +301,7 @@ endclass.
 class lcl_main implementation.
 
   method constructor.
-    create object mo_handler
+    create object mo_dispatcher
       exporting
         i_threads = 2.
   endmethod.
@@ -315,14 +315,14 @@ class lcl_main implementation.
       append initial line to mt_results assigning <res>.
       <res>-task = sy-tabix.
       <res>-runner = lcl_task=>create(
-        io_queue = mo_handler
+        io_dispatcher = mo_dispatcher
         id = sy-tabix
         trigger_err = boolc( sy-tabix = 3 ) "one random task failed
         name = |Task { sy-tabix }| ).
       <res>-runner->run_parallel( ).
 
     enddo.
-    wait until mo_handler->all_threads_are_finished( ) = abap_true up to 20 seconds.
+    wait until mo_dispatcher->all_threads_are_finished( ) = abap_true up to 20 seconds.
 
     loop at mt_results assigning <res>.
       if <res>-runner->has_error( ) = abap_false.
