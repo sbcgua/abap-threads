@@ -5,43 +5,47 @@ class ZCL_THREAD_RUNNER_SLUG definition
 
 public section.
 
-  constants C_RUNNER_FM_NAME type STRING value 'Z_THREAD_RUNNER'. "#EC NOTEXT
+  constants c_runner_fm_name type string value 'Z_THREAD_RUNNER'. "#EC NOTEXT
 
-  methods RUN
+  methods run
   abstract .
-  methods GET_STATE_REF
+  methods get_state_ref
   abstract
     returning
-      value(RV_REF) type ref to DATA .
-  methods SERIALIZE_STATE
+      value(rv_ref) type ref to data .
+  methods serialize_state
     returning
-      value(RV_XSTR) type XSTRING .
-  methods DESERIALIZE_STATE
+      value(rv_xstr) type xstring .
+  methods deserialize_state
     importing
-      !IV_XSTR type XSTRING .
-  methods RUN_PARALLEL
+      !iv_xstr type xstring .
+  methods run_parallel
     importing
-      !IV_THREAD_NAME type CLIKE optional .
-  methods ON_END_OF_TASK
+      !iv_thread_name type clike optional .
+  methods on_end_of_task
     importing
-      !P_TASK type CLIKE .
-  methods IS_READY
+      !p_task type clike .
+  methods is_ready
     returning
-      value(RV_YES) type ABAP_BOOL .
-  methods HAS_ERROR
+      value(rv_yes) type abap_bool .
+  methods has_error
     returning
-      value(RV_YES) type ABAP_BOOL .
-  methods ERROR
+      value(rv_yes) type abap_bool .
+  methods error
     returning
-      value(RV_ERROR) type STRING .
-  methods SET_DISPATCHER
+      value(rv_error) type string .
+  methods set_dispatcher
     importing
-      !IO_DISPATCHER type ref to ZCL_THREAD_QUEUE_DISPATCHER .
+      !io_dispatcher type ref to zcl_thread_queue_dispatcher .
   protected section.
 
     data mv_error type string.
     data mv_ready type abap_bool.
     data mo_queue_dispatcher type ref to zcl_thread_queue_dispatcher.
+
+    methods debug
+      importing
+        iv_msg type string.
 
   private section.
 ENDCLASS.
@@ -49,6 +53,15 @@ ENDCLASS.
 
 
 CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
+
+
+  method debug.
+*    field-symbols <log> type string_table.
+*    assign ('(ZTHREAD_RUNNER_TEST_MULTI_ONLY)gt_log') to <log>.
+*    if sy-subrc is initial.
+*      append iv_msg to <log>.
+*    endif.
+  endmethod.
 
 
   method deserialize_state.
@@ -119,6 +132,8 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
     lv_class_name = cl_abap_typedescr=>describe_by_object_ref( me )->absolute_name.
     lv_xstr = serialize_state( ).
 
+    debug( |runner->run_parallel({ lv_thread_name }), pre start| ).
+
     call function c_runner_fm_name
       starting new task lv_thread_name
       destination in group lv_server_group
@@ -132,9 +147,32 @@ CLASS ZCL_THREAD_RUNNER_SLUG IMPLEMENTATION.
         resource_failure      = 3
         others                = 4.
 
-    if sy-subrc <> 0.
-      mv_error = |{ sy-msgv1 }{ sy-msgv2 }{ sy-msgv3 }{ sy-msgv3 }|.
+    data(rc) = sy-subrc.
+
+    if rc = 3.
+      data r_free_threads type i.
+      CALL FUNCTION 'SPBT_GET_CURR_RESOURCE_INFO'
+        IMPORTING
+          free_pbt_wps                = r_free_threads
+        EXCEPTIONS
+          internal_error              = 1
+          pbt_env_not_initialized_yet = 2
+          OTHERS                      = 3.
+      debug( |runner->run_parallel({ lv_thread_name }), resource_failure, free_threads = { r_free_threads }, rc={ sy-subrc }| ).
+*      if r_free_threads = 0 or sy-subrc <> 0.
+*        debug( '      ^^^^^^^^^^^^^^^^^^' ).
+*      endif.
+    endif.
+
+    if rc <> 0.
+      mv_error = |starting new task failed with rc={ rc }: { sy-msgv1 }{ sy-msgv2 }{ sy-msgv3 }{ sy-msgv3 }|.
       mv_ready = abap_true.
+      debug( |runner->run_parallel({ lv_thread_name }), failed: { mv_error }| ).
+      if mo_queue_dispatcher is bound. " Queued thread
+        mo_queue_dispatcher->clear_thread( |{ lv_thread_name }| ).
+      endif.
+    else.
+      debug( |runner->run_parallel({ lv_thread_name }), started ok| ).
     endif.
 
   endmethod.

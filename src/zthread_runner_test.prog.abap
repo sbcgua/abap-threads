@@ -1,4 +1,4 @@
-program zthreads_test.
+program zthread_runner_test.
 
 class lcx_error definition inheriting from cx_no_check.
 endclass.
@@ -11,7 +11,6 @@ class lcl_task definition final inheriting from zcl_thread_runner_slug.
         id            type i
         name          type string
         trigger_err   type abap_bool default abap_false
-        io_dispatcher type ref to zcl_thread_queue_dispatcher optional
       returning
         value(ro_instance) type ref to lcl_task.
 
@@ -42,7 +41,6 @@ class lcl_task implementation.
     ro_instance->ms_state-id = id.
     ro_instance->ms_state-name = name.
     ro_instance->ms_state-trigger_err = trigger_err.
-    ro_instance->set_dispatcher( io_dispatcher ).
   endmethod.
 
   method result.
@@ -116,10 +114,10 @@ class lcl_reducer implementation.
   method create_runner.
 
     ro_instance = lcl_task=>create(
-      io_dispatcher = io_queue_dispatcher
       id            = iv_index
       trigger_err   = boolc( iv_index = 4 ) "one random task failed
       name          = |Task { iv_index }| ).
+    ro_instance->set_dispatcher( io_queue_dispatcher ).
 
   endmethod.
 
@@ -238,10 +236,10 @@ class lcl_main implementation.
       append initial line to lt_results assigning <res>.
       <res>-task = sy-tabix.
       <res>-runner = lcl_task=>create(
-        io_dispatcher = lo_dispatcher
         id = sy-tabix
         trigger_err = boolc( sy-tabix = 3 ) "one random task failed
         name = |Task { sy-tabix }| ).
+      <res>-runner->set_dispatcher( lo_dispatcher ).
       <res>-runner->run_parallel( ).
 
     enddo.

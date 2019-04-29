@@ -35,6 +35,7 @@ public section.
   methods get_server_group
     returning
       value(r_server_group) type rzlli_apcl .
+
   protected section.
 
   private section.
@@ -56,6 +57,9 @@ public section.
     methods get_free_threads
       returning
         value(r_free_threads) type i .
+    methods debug
+      importing
+        iv_msg type string.
 ENDCLASS.
 
 
@@ -64,11 +68,17 @@ CLASS ZCL_THREAD_QUEUE_DISPATCHER IMPLEMENTATION.
 
 
   method ALL_THREADS_ARE_FINISHED.
+
+    debug( |queue->all_threads_are_finished| ).
     r_empty = boolc( used_threads = 0 ).
+    " potential race condition? add end_of_queue flag ?
   endmethod.
 
 
   method CLEAR_THREAD.
+
+    debug( |queue->clear_thread({ i_task }), { me->used_threads }/{ me->threads }| ).
+
     field-symbols <thread> like line of me->threads_list.
     read table me->threads_list assigning <thread>
       with key
@@ -96,10 +106,9 @@ CLASS ZCL_THREAD_QUEUE_DISPATCHER IMPLEMENTATION.
     free_threads = me->get_free_threads( ).
 
     " Ensure that no more than half of the free threads are used
-    free_threads = free_threads / 2 + 1.
-    if free_threads < me->threads.
-      me->threads = free_threads.
-    endif.
+    me->threads = nmin( val1 = me->threads val2 = free_threads div 2 + 1 ).
+
+    debug( |queue->constructor, [want { i_threads }, free { free_threads }] ~> { me->threads }| ).
 
     " Initialise threads
     data thread_no type n length 2 value '00'.
@@ -113,17 +122,37 @@ CLASS ZCL_THREAD_QUEUE_DISPATCHER IMPLEMENTATION.
   endmethod.
 
 
+  method debug.
+*    field-symbols <log> type string_table.
+*    assign ('(ZTHREAD_RUNNER_TEST_MULTI_ONLY)gt_log') to <log>.
+*    if sy-subrc is initial.
+*      append iv_msg to <log>.
+*    endif.
+  endmethod.
+
+
   method GET_FREE_THREAD.
     " Wait for a free thread
-    wait until me->used_threads < me->threads up to me->timeout seconds.
+
+    debug( |queue->get_free_thread, { me->used_threads }/{ me->threads }| ).
+
+    if me->used_threads = me->threads.
+      wait until me->used_threads < me->threads up to me->timeout seconds.
+      data(err) = sy-subrc.
+      debug( |queue->get_free_thread, after wait, rc={ err }| ).
+      if err = 8. "Timeout
+        assert 1 = 0.
+        "TODO ???
+      endif.
+    endif.
 
     " Get number of first free thread
     field-symbols <thread> like line of me->threads_list.
     read table me->threads_list with key used = abap_false assigning <thread>.
 
-    add 1 to used_threads.
     <thread>-used = abap_true.
     r_thread = <thread>-thread.
+    add 1 to used_threads.
   endmethod.
 
 
@@ -143,6 +172,7 @@ CLASS ZCL_THREAD_QUEUE_DISPATCHER IMPLEMENTATION.
         cant_init_different_pbt_groups = 6
         others                         = 7.
 
+    " TODO graceful handling of error
     case sy-subrc.
       when 0. " Do nothing
 
