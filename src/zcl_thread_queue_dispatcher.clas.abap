@@ -22,7 +22,7 @@ public section.
       !i_timeout type i default c_default_timeout
       !i_task_prefix type ty_thread_name_prefix default c_default_task_prefix
       !i_group type rzlli_apcl default c_default_group .
-  methods all_threads_are_finished
+  methods is_queue_empty
     returning
       value(r_empty) type abap_bool .
   methods clear_thread
@@ -67,11 +67,12 @@ ENDCLASS.
 CLASS ZCL_THREAD_QUEUE_DISPATCHER IMPLEMENTATION.
 
 
-  method ALL_THREADS_ARE_FINISHED.
+  method IS_QUEUE_EMPTY.
 
-    debug( |queue->all_threads_are_finished| ).
+    debug( |queue->is_queue_empty| ).
     r_empty = boolc( used_threads = 0 ).
     " potential race condition? add end_of_queue flag ?
+
   endmethod.
 
 

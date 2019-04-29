@@ -112,7 +112,7 @@ CLASS ZCL_THREAD_REDUCER IMPLEMENTATION.
         iv_payload          = <payload> ).
       <q>-runner->run_parallel( ).
     endloop.
-    wait until lo_dispatcher->all_threads_are_finished( ) = abap_true up to 20 seconds.
+    wait until lo_dispatcher->is_queue_empty( ) = abap_true up to 20 seconds.
 
     loop at <payload_tab> assigning <payload>.
       read table lt_queue assigning <q> index sy-tabix.

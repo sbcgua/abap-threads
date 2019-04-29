@@ -243,7 +243,7 @@ class lcl_main implementation.
       <res>-runner->run_parallel( ).
 
     enddo.
-    wait until lo_dispatcher->all_threads_are_finished( ) = abap_true up to 20 seconds.
+    wait until lo_dispatcher->is_queue_empty( ) = abap_true up to 20 seconds.
 
     loop at lt_results assigning <res>.
       if <res>-runner->has_error( ) = abap_false.
